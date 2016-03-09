@@ -1,0 +1,2 @@
+cp ${LITEBOSH_FETCH_TARGET}/*.jar ${LITEBOSH_INSTALL_TARGET}/simple-java.jar
+

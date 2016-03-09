@@ -1,0 +1,46 @@
+#!/bin/bash -e
+
+RUN_DIR=/var/litebosh/sys/run/java-simple
+LOG_DIR=/var/litebosh/sys/log/java-simple
+PIDFILE=$RUN_DIR/java-simple.pid
+
+export JAVA_HOME=/opt/jdk1.8.0_65
+export PATH=$JAVA_HOME/bin:$PATH
+
+source /var/litebosh/packages/common/utils.sh
+
+case $1 in
+
+  start)
+    pid_guard $PIDFILE "Just a simple java"
+
+    mkdir -p $RUN_DIR
+    mkdir -p $LOG_DIR
+
+    ulimit -l unlimited
+    ulimit -n 65536
+
+
+
+    exec >>$LOG_DIR/java-simple.stdout.log \
+         2>>$LOG_DIR/java-simple.stderr.log
+
+    OPTS="-Dspring.profiles.active=prod -Xms4g  -Xmx4g"
+
+    java -jar $OPTS /var/litebosh/packages/java-simple/java-simple.jar &
+
+    echo $! > $PIDFILE
+
+    ;;
+
+  stop)
+    kill_and_wait $PIDFILE 40
+
+    ;;
+
+  *)
+    echo "Usage: java-simple {start|stop}"
+
+    ;;
+
+esac

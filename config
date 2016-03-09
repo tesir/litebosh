@@ -1,0 +1,11 @@
+CONFIG_REPO_SERVER=http://192.168.5.25/release
+CONFIG_REPO_LOCAL=/opt/deploy_repo
+
+ARTIFACTS_REPO=http://{bucket}.vpc100-oss-cn-hangzhou.aliyuncs.com
+ARTIFACTS_LIST=simple-java nginx postgresql
+
+# M  MODULE IP PSW
+M	simple-java	192.168.4.24    password
+M	nginx		192.168.4.16	password
+M	postgresql	192.168.4.30	password
+

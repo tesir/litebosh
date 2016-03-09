@@ -1,0 +1,122 @@
+LITEBOSH V0.9！
+
+特点说明：
+1、分布式部署，读取config文件分发节点；
+2、使用monit监控部署的任务，具备健康检查和异常恢复；
+3、litebosh-release参考bosh软件发布的思想，是一套通用的发布框架;
+4、发布版本控制和回滚，使用SHA1校验来生成发布版本交付件列表;
+5、分布式收集monit数据，集中显示.
+
+脚本说明：
+.
+├── config	# 配置合集，所有配置都在这里汇聚
+├── deploy.sh	# 部署脚本入口，正常情况都使用这个脚本部署
+├── liteangel.sh	# 远端执行的脚本，通过expect拷贝到目标机器并执行
+├── README		# ME
+├── synccmd.sh		# 执行远端命令
+├── syncfile.sh		# 同步文件到远端 
+├── update.sh		# 更新litebosh-release到repo(下载服务器)
+└── litebosh-release		# 发布目录，独立打包到下载服务器
+    ├── clean.sh	# 清除已部署的模块
+    ├── fetch.sh	# 解析release文件，获取待部署软件包
+    ├── install.sh	# 目标机器部署应用入口，通过liteangel调用
+    ├── jobs	# JOB目录，每一个服务抽象成一个JOB
+    │   ├── java-simple	# java-simple的JOB目录
+    │   │   ├── bin	# 用于monit执行的脚本或者二进制程序
+    │   │   │   └── java-simple_ctl	# java-simple的启动、停止控制脚本
+    │   │   └── java-simple.monitrc	# monit服务配置文件
+    ├── monit.sh	# 安装monit工具的脚本
+    ├── packages	# 获取交付件后，如何部署的脚本 
+    │   ├── java-simple	# java-simple的部署脚本
+    │   │   └── packaging	# 执行这个脚本，可以将java-simple部署完成
+    ├── prepare.sh	# 部署依赖环境准备
+    ├── releases	# 版本发布列表
+    │   ├── litebosh-1	# 版本号为1的列表
+    │   └── litebosh-latest	# 默认的版本列表
+    ├── start.sh	# 启动服务
+    ├── stop.sh		# 停止服务
+    └── utils.sh	# 工具类的脚本
+
+部署目录说明：
+一个正确的部署，完整目录如下：
+/var/litebosh/       # 部署根目录
+├── data	# 服务的JOB、二进制包，不直接访问，通过软连接来访问
+│   ├── jobs
+│   │   └── nginx
+│   │       └── vlatestt201603071512	# 部署版本+部署时间
+│   │           ├── bin
+│   │           │   └── nginx_ctl	# monit执行的启动、停止
+│   │           └── nginx.monitrc	# monit服务配置脚本
+│   └── packages
+│       ├── common
+│       │   └── utils.sh
+│       └── nginx
+│           └── vlatestt201603071512
+│               └── nginx.jar
+├── jobs
+│   └── nginx -> /var/litebosh/data/jobs/nginx/vlatestt201603071512	# 任务列表
+├── monit
+│   ├── empty.monitrc	# monit原始任务
+│   ├── job	# monit任务目录
+│   │   └── nginx.monitrc -> /var/litebosh/data/jobs/nginx/vlatestt201603071512/nginx.monitrc
+│   └── monit.log	# monit系统日志
+├── packages	# 软件包
+│   ├── common -> /var/litebosh/data/packages/common
+│   └── nginx -> /var/litebosh/data/packages/nginx/vlatestt201603071512
+└── sys	# 运行时需要的文件
+    ├── log	# 日志文件
+    │   ├── nginx
+    │   │   ├── nginx.stderr.log	# 标准错误输出，应用级
+    │   │   └── nginx.stdout.log	# 标准输出，应用级
+    │   ├── nginx_ctl.err.log	# monit控制错误
+    │   ├── nginx_ctl.log		# monit控制日志
+    └── run
+        └── nginx
+            └── nginx.pid	# 运行时的pid文件
+
+
+服务定制说明：
+一个服务包含以下部分：
+1、JOB，定义monit服务配置文件*.monitrc和服务启动停止控制脚本；
+2、PACKAGE, 服务安装脚本；
+3、RELEASE，软件发布列表，主要定义版本下载路径和依赖的包；
+
+一个典型的monitrc如下：
+check process java-simple
+  with pidfile /var/litebosh/sys/run/java-simple/java-simple.pid
+  start program "/var/litebosh/jobs/java-simple/bin/java-simple_ctl start" with timeout 300 seconds
+  stop program "/var/litebosh/jobs/java-simple/bin/java-simple_ctl stop"
+
+具体可参考monit使用文档，这里不详述。
+https://mmonit.com/monit/documentation/monit.html
+
+packaging定义服务的安装方法，比如web-back的如下：
+cp ${LITEBOSH_FETCH_TARGET}/*.jar ${LITEBOSH_INSTALL_TARGET}/web-back.jar
+mv /opt/litebosh/front/solrock /opt/litebosh/front/solrock_back
+mkdir -p /opt/litebosh/front/solrock
+
+tar xzf ${LITEBOSH_FETCH_TARGET}/solrock.tar.gz -C /opt/litebosh/front/solrock
+
+
+其中，LITEBOSH_FETCH_TARGET是fetch脚本下载的交付件临时存放地址，LITEBOSH_INSTALL_TARGET为安装目录，都应该使用变量，不应该写死。
+
+版本发布：
+[root@localhost litebosh]# ./release.sh prd24
+Now begin release for version prd24...
+WARN: nginx not changed after last released!
+#Release for verion prd24
+simple-java          0e8adb61b359bc4ba3aeb2f388fbd758daf85c7f nginx
+nginx                d25925973590f619cc824921112e78b077fdbbe7
+postgresql           203fed18b372634673fe169a3180e19c9b489b12
+Update to repo...
+Done
+
+节点状态查询：
+[root@localhost litebosh]# ./show.sh
+MODULE              HOST            STATUS          UPTIME        MEMORY      CPU
+java-simple         192.168.4.24    Running         1d 6h 4m      938.3 MB    0.0%
+nignx               192.168.4.16    None            -             -           -
+postgresql          192.168.4.24    Not monitored   -             -           -
+
+
+

@@ -1,0 +1,4 @@
+check process java-simple
+  with pidfile /var/litebosh/sys/run/java-simple/java-simple.pid
+  start program "/var/litebosh/jobs/java-simple/bin/java-simple_ctl start" with timeout 300 seconds
+  stop program "/var/litebosh/jobs/java-simple/bin/java-simple_ctl stop"
